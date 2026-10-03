@@ -46,16 +46,13 @@ jobs:
   # ==========================================
   # 2. SONARQUBE CODE QUALITY
   # ==========================================
-    # ==========================================
-  # 2. SONARQUBE CODE QUALITY
-  # ==========================================
+  
   sonarqube:
     name: SonarQube Analysis
     runs-on: ubuntu-latest
     needs: build
 
     steps:
-
       - name: Checkout source code
         uses: actions/checkout@v4
 
@@ -66,24 +63,33 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Check Sonar command
+      - name: Check Maven and Sonar configuration
         run: |
-          echo "Checking workflow files..."
-          grep -R "sonar:sonar" .github/workflows || true
-          echo "Checking pom.xml..."
-          grep -n "sonar-maven-plugin" pom.xml || true
+          mvn --version
+          echo "Current branch:"
+          git branch --show-current
+          echo "Current commit:"
+          git rev-parse HEAD
+          echo "Searching for old Sonar commands:"
+          grep -RnE 'sonar:sonar|sonar-maven-plugin' \
+            --include='*.yml' \
+            --include='*.yaml' \
+            --include='*.xml' \
+            --include='*.sh' \
+            . || true
 
       - name: SonarQube Analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         run: |
-          mvn clean verify \
+          mvn -B clean verify \
             org.sonarsource.scanner.maven:sonar-maven-plugin:5.0.0.4389:sonar \
             -Dsonar.projectKey=my-java-app \
             -Dsonar.projectName=my-java-app \
             -Dsonar.host.url="$SONAR_HOST_URL" \
             -Dsonar.token="$SONAR_TOKEN"
+
 
 
   # ==========================================
