@@ -46,6 +46,9 @@ jobs:
   # ==========================================
   # 2. SONARQUBE CODE QUALITY
   # ==========================================
+    # ==========================================
+  # 2. SONARQUBE CODE QUALITY
+  # ==========================================
   sonarqube:
     name: SonarQube Analysis
     runs-on: ubuntu-latest
@@ -62,18 +65,21 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: maven
-        
+
+      - name: Check Sonar command
+        run: |
+          echo "Checking workflow files..."
+          grep -R "sonar:sonar" .github/workflows || true
+          echo "Checking pom.xml..."
+          grep -n "sonar-maven-plugin" pom.xml || true
+
       - name: SonarQube Analysis
-        env:    
+        env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         run: |
-          mvn -version
-          mvn help:describe \
-            -Dplugin=org.sonarsource.scanner.maven:sonar-maven-plugin \
-            -Ddetail
-      
-          mvn org.sonarsource.scanner.maven:sonar-maven-plugin:5.0.0.4121:sonar \
+          mvn clean verify \
+            org.sonarsource.scanner.maven:sonar-maven-plugin:5.0.0.4389:sonar \
             -Dsonar.projectKey=my-java-app \
             -Dsonar.projectName=my-java-app \
             -Dsonar.host.url="$SONAR_HOST_URL" \
