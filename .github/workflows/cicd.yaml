@@ -23,15 +23,18 @@ jobs:
 
       - name: Build WAR File
         run: mvn clean package -DskipTests
-
-      - name: SonarQube Scan
-        run: |
-          mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+    
+         stage('SonarQube Scan') {
+            steps {
+                sh '''
+            mvn clean verify \
+            org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.host.url=http://YOUR_SONARQUBE_IP:9000 \
-              -Dsonar.token=YOUR_SONAR_TOKEN
-            
-            
-            
+            -Dsonar.token=$SONAR_TOKEN
+                  '''
+                  }
+              }
+              
       - name: Upload WAR to Nexus
         env:
           NEXUS_URL: ${{ secrets.NEXUS_URL }}
