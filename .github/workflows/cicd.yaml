@@ -5,14 +5,24 @@ on:
     branches:
       - main
 
+  workflow_dispatch:
+
+env:
+  JAVA_VERSION: '17'
+  APP_NAME: 'my-java-app'
+
 jobs:
 
+  # ==========================================
+  # 1. BUILD AND TEST
+  # ==========================================
   build:
+    name: Build and Test
     runs-on: ubuntu-latest
 
     steps:
 
-      - name: Checkout Code
+      - name: Checkout source code
         uses: actions/checkout@v4
 
       - name: Setup Java
@@ -22,8 +32,132 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Build Application
-        run: mvn clean package
+      - name: Build application
+        run: |
+          mvn clean package -DskipTests=false
 
-      - name: Run Tests
-        run: mvn test
+      - name: Run tests
+        run: |
+          mvn test
+
+      - name: Upload WAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-java-app
+          path: target/*.war
+
+
+  # ==========================================
+  # 2. SONARQUBE CODE QUALITY
+  # ==========================================
+  sonarqube:
+    name: SonarQube Analysis
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: SonarQube analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          mvn clean verify sonar:sonar \
+            -Dsonar.projectKey=my-java-app \
+            -Dsonar.projectName=my-java-app \
+            -Dsonar.host.url=$SONAR_HOST_URL \
+            -Dsonar.token=$SONAR_TOKEN
+
+
+  # ==========================================
+  # 3. UPLOAD ARTIFACT TO NEXUS
+  # ==========================================
+  nexus:
+    name: Upload to Nexus
+    runs-on: ubuntu-latest
+    needs:
+      - build
+      - sonarqube
+
+    steps:
+
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Configure Maven settings
+        run: |
+          mkdir -p ~/.m2
+
+          cat > ~/.m2/settings.xml <<EOF
+          <settings>
+            <servers>
+              <server>
+                <id>nexus</id>
+                <username>${NEXUS_USERNAME}</username>
+                <password>${NEXUS_PASSWORD}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+
+      - name: Build WAR
+        run: |
+          mvn clean package -DskipTests
+
+      - name: Upload WAR to Nexus
+        env:
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        run: |
+          mvn deploy -DskipTests
+
+
+  # ==========================================
+  # 4. DEPLOY TO TOMCAT
+  # ==========================================
+  deploy:
+    name: Deploy to Tomcat
+    runs-on: ubuntu-latest
+    needs: nexus
+
+    steps:
+
+      - name: Download WAR
+        uses: actions/download-artifact@v4
+        with:
+          name: my-java-app
+          path: target
+
+      - name: Deploy WAR to Tomcat
+        env:
+          TOMCAT_URL: ${{ secrets.TOMCAT_URL }}
+          TOMCAT_USERNAME: ${{ secrets.TOMCAT_USERNAME }}
+          TOMCAT_PASSWORD: ${{ secrets.TOMCAT_PASSWORD }}
+        run: |
+
+          WAR_FILE=$(find target -name "*.war" | head -1)
+
+          echo "Deploying $WAR_FILE to Tomcat"
+
+          curl -u "$TOMCAT_USERNAME:$TOMCAT_PASSWORD" \
+            --upload-file "$WAR_FILE" \
+            "$TOMCAT_URL/manager/text/deploy?path=/my-java-app&update=true"
+
+          echo "Deployment completed"
