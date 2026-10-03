@@ -1,58 +1,29 @@
-name: Build and Deploy train-ticket-reservation
+name: Java CI/CD Pipeline
 
 on:
   push:
     branches:
-      - master
-
-  workflow_dispatch:
+      - main
 
 jobs:
+
   build:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+          cache: maven
 
-      - name: Build WAR File
-        run: mvn clean package -DskipTests
-    
-         stage('SonarQube Scan') {
-            steps {
-                sh '''
-            mvn clean verify \
-            org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-            -Dsonar.host.url=http://YOUR_SONARQUBE_IP:9000 \
-            -Dsonar.token=$SONAR_TOKEN
-                  '''
-                  }
-              }
-              
-      - name: Upload WAR to Nexus
-        env:
-          NEXUS_URL: ${{ secrets.NEXUS_URL }}
-          NEXUS_USER: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASS: ${{ secrets.NEXUS_PASSWORD }}
-        run: |
-          WAR_FILE=$(ls target/*.war | head -n 1)
-          curl -v -u "$NEXUS_USER:$NEXUS_PASS" \
-            --upload-file "$WAR_FILE" \
-            "$NEXUS_URL/repository/maven-releases/train-ticket-reservation.war"
-      - name: Deploy to Tomcat
-        env:
-          TOMCAT_HOST: ${{ secrets.TOMCAT_HOST }}
-          TOMCAT_USER: ${{ secrets.TOMCAT_USERNAME }}
-          TOMCAT_PASS: ${{ secrets.TOMCAT_PASSWORD }}
-        run: |
-          WAR_FILE=$(ls target/*.war | head -n 1)
-          echo "Deploying to http://$TOMCAT_HOST:$TOMCAT_PORT/manager/text/deploy?path=/train-ticket-reservation&update=true"
-          curl -v -u "$TOMCAT_USER:$TOMCAT_PASS" \
-          -T "$WAR_FILE" \
-          "http://$TOMCAT_HOST:$TOMCAT_PORT/manager/text/deploy?path=/train-ticket-reservation&update=true"
+      - name: Build Application
+        run: mvn clean package
+
+      - name: Run Tests
+        run: mvn test
