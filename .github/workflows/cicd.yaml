@@ -26,10 +26,12 @@ jobs:
 
       - name: SonarQube Scan
         run: |
-          mvn sonar:sonar \
-            -Dsonar.projectKey=train-ticket-reservation \
-            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-            -Dsonar.token=${{ secrets.SONAR_TOKEN }}
+          mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+            -Dsonar.host.url=http://YOUR_SONARQUBE_IP:9000 \
+              -Dsonar.token=YOUR_SONAR_TOKEN
+            
+            
+            
       - name: Upload WAR to Nexus
         env:
           NEXUS_URL: ${{ secrets.NEXUS_URL }}
