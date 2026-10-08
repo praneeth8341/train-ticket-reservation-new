@@ -173,4 +173,4 @@ jobs:
             --upload-file "$WAR_FILE" \
             "$TOMCAT_URL/manager/text/deploy?path=/my-java-app&update=true"
 
-          echo "Deployment completed successfully"
+          echo "Deployment completed successfully "
